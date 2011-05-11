@@ -6,9 +6,11 @@ use Behat\Behat\Definition\Definition,
     Behat\Behat\DataCollector\LoggerDataCollector,
     Symfony\Component\Console\Output\StreamOutput;
 
-use Behat\Behat\Event\FeatureEvent,
+use Behat\Behat\Event\EventInterface,
+    Behat\Behat\Event\FeatureEvent,
     Behat\Behat\Event\ScenarioEvent,
-    Behat\Behat\Event\OutlineExampleEvent;
+    Behat\Behat\Event\OutlineExampleEvent,
+    Behat\Behat\Event\StepEvent;
 
 use Behat\Gherkin\Node\AbstractNode,
     Behat\Gherkin\Node\FeatureNode,
@@ -70,18 +72,11 @@ class MultipageHtmlFormatter extends HtmlFormatter
     protected $header;
 
     /**
-     * Per-feature scenarios counter
+     * Per-feature data recording
      *
-     * @var     integer
+     * @var     array
      */
-    protected $featureScenarios;
-
-    /**
-     * Per-feature result tracking
-     *
-     * @var string
-     */
-    protected $featureResult;
+    protected $features = array();
 
     /**
      * {@inheritdoc}
@@ -91,10 +86,14 @@ class MultipageHtmlFormatter extends HtmlFormatter
         $feature = $event->getFeature();
         $this->filename = $this->featureOutputFilename($feature);
 
-        $this->featureScenarios = 0;
-        $this->featureResult = 'passed';
         $this->isBackgroundPrinted = false;
         $this->printFeatureHeader($feature);
+
+        $this->feature = array(
+            'start' => microtime(true),
+            'scenarios' => array(),
+            'result' => 0,
+        );
     }
 
     /**
@@ -102,6 +101,10 @@ class MultipageHtmlFormatter extends HtmlFormatter
      */
     public function afterFeature(FeatureEvent $event)
     {
+        $this->feature['duration'] = microtime(true) - $this->feature['start'];
+        $this->feature['summary'] =
+            array_count_values($this->feature['scenarios']);
+
         $this->printIndexFeatureSummary($event->getFeature());
         $this->printFeatureFooter($event->getFeature());
         $this->flushOutputConsole();
@@ -112,10 +115,8 @@ class MultipageHtmlFormatter extends HtmlFormatter
      */
     public function afterScenario(ScenarioEvent $event)
     {
-        $this->featureScenarios += 1;
-        $result = $event->getResult();
-        if ($result > $this->featureResult)
-            $this->featureResult = $result;
+        $this->updateFeatureData($event);
+        parent::afterScenario($event);
     }
 
     /**
@@ -123,10 +124,15 @@ class MultipageHtmlFormatter extends HtmlFormatter
      */
     public function afterOutlineExample(OutlineExampleEvent $event)
     {
-        $this->featureScenarios += 1;
+        $this->updateFeatureData($event);
+        parent::afterOutlineExample($event);
+    }
+
+    protected function updateFeatureData(EventInterface $event) {
         $result = $event->getResult();
-        if ($result > $this->featureResult)
-            $this->featureResult = $result;
+        array_push($this->feature['scenarios'], $result);
+        if ($result > $this->feature['result'])
+            $this->feature['result'] = $result;
     }
 
     /**
@@ -141,9 +147,16 @@ class MultipageHtmlFormatter extends HtmlFormatter
         $this->indexWriteln($this->header);
         $this->indexWriteln('<h1>Behat Test Suite</h1>');
         $this->indexWriteln('<table class="index"><thead><tr>');
-        $this->indexWriteln('<th>'.'Feature'.'</th>');
-        $this->indexWriteln('<th>'.'Scenarios'.'</th>');
-        $this->indexWriteln('<th>'.'Result'.'</th>');
+        $this->indexWriteln('<th rowspan="2">'.'Feature'.'</th>');
+        $this->indexWriteln('<th rowspan="2">'.'Result'.'</th>');
+        $this->indexWriteln('<th rowspan="2">'.'Duration'.'</th>');
+        $this->indexWriteln('<th colspan="5">'.'Breakdown'.'</th>');
+        $this->indexWriteln('</tr><tr>');
+        $this->indexWriteln('<th>'.'Passed'.'</th>');
+        $this->indexWriteln('<th>'.'Pending'.'</th>');
+        $this->indexWriteln('<th>'.'Undefined'.'</th>');
+        $this->indexWriteln('<th>'.'Failed'.'</th>');
+        $this->indexWriteln('<th>'.'Total'.'</th>');
         $this->indexWriteln('</tr></thead><tbody>');
     }
 
@@ -185,12 +198,25 @@ class MultipageHtmlFormatter extends HtmlFormatter
         $title = $feature->getTitle();
         if ($title == '')
             $title = '** Missing Title **';
-        $result = $this->getResultColorCode($this->featureResult);
+        $result = $this->getResultColorCode($this->feature['result']);
+        $minutes    = floor($this->feature['duration'] / 60);
+        $seconds    = round($this->feature['duration'] - ($minutes * 60), 3);
+        $summary = $this->feature['summary'];
+        $outcomes = array(StepEvent::PASSED, StepEvent::PENDING,
+                          StepEvent::UNDEFINED, StepEvent::FAILED);
 
         $this->indexWriteln('<tr class="'.$result.'">');
+
         $this->indexWriteln('<td><a href="'.$href.'">'.$title.'</a></td>');
-        $this->indexWriteln('<td>'.$this->featureScenarios.'</td>');
         $this->indexWriteln('<td>'.ucfirst($result).'</td>');
+        $this->indexWriteln('<td>'.$minutes . 'm' . $seconds . 's</td>');
+
+        foreach($outcomes as $outcome) {
+            $count = isset($summary[$outcome]) ? $summary[$outcome] : 0;
+            $this->indexWriteln('<td>'.$count.'</td>');
+        }
+        $this->indexWriteln('<td>'.count($this->feature['scenarios']).'</td>');
+
         $this->indexWriteln('</tr>');
     }
 
