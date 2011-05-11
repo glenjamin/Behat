@@ -44,7 +44,7 @@ abstract class ConsoleFormatter implements FormatterInterface
      *
      * @var     Symfony\Component\Console\Output\StreamOutput
      */
-    private $console;
+    protected $console;
 
     /**
      * Initialize formatter.

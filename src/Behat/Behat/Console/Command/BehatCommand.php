@@ -43,6 +43,7 @@ class BehatCommand extends Command
         'pretty'    => 'Behat\Behat\Formatter\PrettyFormatter',
         'progress'  => 'Behat\Behat\Formatter\ProgressFormatter',
         'html'      => 'Behat\Behat\Formatter\HtmlFormatter',
+        'multi'     => 'Behat\Behat\Formatter\MultipageHtmlFormatter',
         'junit'     => 'Behat\Behat\Formatter\JUnitFormatter'
     );
 
