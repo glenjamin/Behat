@@ -183,10 +183,14 @@ class MultipageHtmlFormatter extends HtmlFormatter
     {
         $href = $this->featureOutputFilename($feature);
         $title = $feature->getTitle();
-        $this->indexWriteln('<tr class="'.$this->featureResult.'">');
+        if ($title == '')
+            $title = '** Missing Title **';
+        $result = $this->getResultColorCode($this->featureResult);
+
+        $this->indexWriteln('<tr class="'.$result.'">');
         $this->indexWriteln('<td><a href="'.$href.'">'.$title.'</a></td>');
         $this->indexWriteln('<td>'.$this->featureScenarios.'</td>');
-        $this->indexWriteln('<td>'.$this->featureResult.'</td>');
+        $this->indexWriteln('<td>'.ucfirst($result).'</td>');
         $this->indexWriteln('</tr>');
     }
 
