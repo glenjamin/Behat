@@ -385,7 +385,7 @@ class MultipageHtmlFormatter extends HtmlFormatter
         }
         #behat {
             font-family: Georgia, serif;
-            font-size:18px;
+            font-size:14px;
             line-height:26px;
         }
         #behat h2, #behat h3, #behat h4 {
@@ -519,7 +519,7 @@ class MultipageHtmlFormatter extends HtmlFormatter
             color:#3D7700;
         }
         #behat .failed {
-            background:#FFFBD3;
+            background:#FFCCCC;
             border-color:#C20000 !important;
             color:#C20000;
         }
