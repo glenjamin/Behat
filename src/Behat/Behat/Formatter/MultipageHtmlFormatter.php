@@ -79,12 +79,19 @@ class MultipageHtmlFormatter extends HtmlFormatter
     protected $features = array();
 
     /**
+     * Should the feature paths notes be linked to the relevant scenario
+     *
+     * @var     boolean
+     */
+    protected $link_feature_paths;
+
+    /**
      * {@inheritdoc}
      */
     public function beforeFeature(FeatureEvent $event)
     {
         $feature = $event->getFeature();
-        $this->filename = $this->featureOutputFilename($feature);
+        $this->filename = $this->featureOutputFilename($feature->getFile());
 
         $this->isBackgroundPrinted = false;
         $this->printFeatureHeader($feature);
@@ -166,7 +173,15 @@ class MultipageHtmlFormatter extends HtmlFormatter
     protected function printSuiteFooter(LoggerDataCollector $logger)
     {
         $this->indexWriteln('</tbody></table>');
-        $this->console = $this->index;
+
+        $this->indexWriteln('<ul>');
+        $this->link_feature_paths = true;
+        $this->printFailedSteps($logger);
+        //$this->printPendingSteps($logger);
+        //$this->printUndefinedSteps($logger);
+        $this->indexWriteln('</ul>');
+
+        $this->console = $this->index; // hack for summary in index
         $this->printSummary($logger);
         $this->indexWriteln($this->footer);
     }
@@ -177,7 +192,7 @@ class MultipageHtmlFormatter extends HtmlFormatter
     protected function printFeatureHeader(FeatureNode $feature)
     {
         $this->writeln($this->header);
-        $this->writeln('<div class="back"><a href="javascript:history.go(-1)">Back to index</a></div>');
+        $this->printIndexLink();
         $this->writeln('<div class="feature">');
 
         parent::printFeatureHeader($feature);
@@ -192,9 +207,47 @@ class MultipageHtmlFormatter extends HtmlFormatter
         $this->writeln($this->footer);
     }
 
+    /**
+     * {@inheritdoc}
+     */
+    protected function printScenarioName(AbstractScenarioNode $scenario)
+    {
+        $this->writeln('<h3 id="line'.$scenario->getLine().'">');
+        $this->writeln('<span class="keyword">' . $scenario->getKeyword() . ': </span>');
+        if (!$scenario instanceof BackgroundNode) {
+            $this->writeln('<span class="title">' . $scenario->getTitle() . '</span>');
+        }
+        $this->printScenarioPath($scenario);
+        $this->writeln('</h3>');
+
+        $this->writeln('<ol>');
+    }
+
+    /**
+     * {@inheritdoc}
+     */
+    protected function printPathComment($file, $line, $indentCount = 0)
+    {
+        $file = $this->relativizePathsInString($file);
+
+        if ($this->link_feature_paths && strstr($file, '.feature')) {
+            $href = $this->featureOutputFilename($file) . '#line' . $line;
+            $this->writeln('<a class="path" href="'.$href.'">');
+        } else {
+            $this->writeln('<span class="path">');
+        }
+        $this->writeln($file . ':' . $line);
+        $this->writeln($this->link_feature_paths ? '</a>' : '</span>');
+    }
+
+    protected function printIndexLink()
+    {
+        $this->writeln('<div class="back"><a href="javascript:history.go(-1)">Back to index</a></div>');
+    }
+
     protected function printIndexFeatureSummary(FeatureNode $feature)
     {
-        $href = $this->featureOutputFilename($feature);
+        $href = $this->featureOutputFilename($feature->getFile());
         $title = $feature->getTitle();
         if ($title == '')
             $title = '** Missing Title **';
@@ -215,16 +268,65 @@ class MultipageHtmlFormatter extends HtmlFormatter
             $count = isset($summary[$outcome]) ? $summary[$outcome] : 0;
             $this->indexWriteln('<td>'.$count.'</td>');
         }
-        $this->indexWriteln('<td>'.count($this->feature['scenarios']).'</td>');
+        $this->indexWriteln('<th>'.count($this->feature['scenarios']).'</th>');
 
         $this->indexWriteln('</tr>');
     }
 
     /**
+     * Prints all failed steps info.
+     *
+     * @param   Behat\Behat\DataCollector\LoggerDataCollector   $logger suite logger
+     */
+    protected function printFailedSteps(LoggerDataCollector $logger)
+    {
+        if (count($logger->getFailedStepsEvents())) {
+            $this->filename = 'failures.html';
+            $this->flushOutputConsole();
+
+            $header = $this->translate('Failed Steps');
+            $this->printErroredEvents($header,
+                                        $logger->getFailedStepsEvents());
+            $this->indexWriteln('<li><a href="failures.html">'.
+                                'Failing steps list'.
+                                '</a></li>');
+        }
+    }
+
+    /**
+     * Prints exceptions information.
+     *
+     * @param   array   $events failed step events
+     */
+    protected function printErroredEvents($header, array $events = null)
+    {
+        $this->writeln($this->header);
+        $this->printIndexLink();
+        $this->writeln('<h1>'.$header.'</h1>');
+        $this->writeln('<ol>');
+        foreach ($events as $event) {
+            $scenario = $event->getStep()->getParent();
+            $this->writeln('<li>');
+            $this->printScenarioHeader($scenario);
+            $this->printStep(
+                $event->getStep(),
+                $event->getResult(),
+                $event->getDefinition(),
+                $event->getSnippet(),
+                $event->getException()
+            );
+            $this->printScenarioFooter($scenario);
+            $this->writeln('</li>');
+        }
+        $this->writeln('</ol>');
+
+    }
+
+    /**
      * Get the output filename to be used for a feature file
      */
-    protected function featureOutputFilename(FeatureNode $feature) {
-        $relative = $this->relativizePathsInString($feature->getFile());
+    protected function featureOutputFilename($filename) {
+        $relative = $this->relativizePathsInString($filename);
         return self::FEATURES_DIR . DIRECTORY_SEPARATOR . $relative . '.html';
     }
 
@@ -267,47 +369,6 @@ class MultipageHtmlFormatter extends HtmlFormatter
         $this->configureOutputConsole($this->index);
 
         return $this->index;
-    }
-
-    /**
-     * Writes message(s) to index.
-     *
-     * @param   string|array    $messages   message or array of messages
-     * @param   boolean         $newline    do we need to append newline after messages
-     *
-     * @uses    getWritingConsole()
-     */
-    protected function failuresWrite($messages, $newline = false)
-    {
-        $this->getFailuresConsole()->write($messages, $newline);
-    }
-
-    /**
-     * Writes newlined message(s) to index.
-     *
-     * @param   string|array    $messages   message or array of messages
-     */
-    protected function failuresWriteln($messages = '')
-    {
-        $this->failuresWrite($messages, true);
-    }
-
-    /**
-     * Returns index console instance, prepared to write.
-     *
-     * @return  Symfony\Component\Console\Output\StreamOutput
-     *
-     * @uses    createOutputConsole()
-     * @uses    configureOutputConsole()
-     */
-    protected function getFailuresConsole()
-    {
-        if (null === $this->failures) {
-            $this->failures = $this->createOutputConsole(self::FAILURES_FILENAME);
-        }
-        $this->configureOutputConsole($this->failures);
-
-        return $this->failures;
     }
 
     /**
