@@ -177,8 +177,8 @@ class MultipageHtmlFormatter extends HtmlFormatter
         $this->indexWriteln('<ul>');
         $this->link_feature_paths = true;
         $this->printFailedSteps($logger);
-        //$this->printPendingSteps($logger);
-        //$this->printUndefinedSteps($logger);
+        $this->printPendingSteps($logger);
+        $this->printUndefinedSteps($logger);
         $this->indexWriteln('</ul>');
 
         $this->console = $this->index; // hack for summary in index
@@ -286,9 +286,63 @@ class MultipageHtmlFormatter extends HtmlFormatter
 
             $header = $this->translate('Failed Steps');
             $this->printErroredEvents($header,
-                                        $logger->getFailedStepsEvents());
+                                      $logger->getFailedStepsEvents());
             $this->indexWriteln('<li><a href="failures.html">'.
                                 'Failing steps list'.
+                                '</a></li>');
+        }
+    }
+
+    /**
+     * Prints all failed steps info.
+     *
+     * @param   Behat\Behat\DataCollector\LoggerDataCollector   $logger suite logger
+     */
+    protected function printPendingSteps(LoggerDataCollector $logger)
+    {
+        if (count($logger->getPendingStepsEvents())) {
+            $this->filename = 'pending.html';
+            $this->flushOutputConsole();
+
+            $header = $this->translate('Pending Steps');
+            $this->printErroredEvents($header,
+                                      $logger->getPendingStepsEvents());
+            $this->indexWriteln('<li><a href="pending.html">'.
+                                'Pending steps list'.
+                                '</a></li>');
+        }
+    }
+
+
+    /**
+     * Prints undefined steps.
+     *
+     * @param   Behat\Behat\DataCollector\LoggerDataCollector   $logger suite logger
+     */
+    protected function printUndefinedSteps(LoggerDataCollector $logger)
+    {
+        if (count($logger->getDefinitionsSnippets())) {
+            $this->filename = 'undefined.html';
+            $this->flushOutputConsole();
+
+            $header = $this->translate(
+                'Undefined step snippets:'
+            );
+
+            $this->writeln($this->header);
+            $this->printIndexLink();
+            $this->writeln('<h1>'.$header.'</h1>');
+            $this->writeln('<ol>');
+            foreach ($logger->getDefinitionsSnippets() as $key => $snippet) {
+                $this->writeln('<li>');
+                $this->writeln("<pre class=\"undefined\">$snippet</pre>");
+                $this->writeln('</li>');
+            }
+            $this->writeln('</ol>');
+            $this->writeln($this->footer);
+
+            $this->indexWriteln('<li><a href="undefined.html">'.
+                                'Undefined steps list'.
                                 '</a></li>');
         }
     }
@@ -319,7 +373,7 @@ class MultipageHtmlFormatter extends HtmlFormatter
             $this->writeln('</li>');
         }
         $this->writeln('</ol>');
-
+        $this->writeln($this->footer);
     }
 
     /**
