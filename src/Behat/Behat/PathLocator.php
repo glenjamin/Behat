@@ -42,6 +42,12 @@ class PathLocator
         'BEHAT_CONFIG_PATH' => '',  // config file path
         'BEHAT_BASE_PATH'   => ''   // base path
     );
+    /**
+     * Work dir.
+     *
+     * @var     string
+     */
+    private $workPath;
 
     /**
      * Initializes path locator.
@@ -51,7 +57,8 @@ class PathLocator
     public function __construct(ContainerInterface $container)
     {
         $this->container = $container;
-        $this->pathTokens['BEHAT_WORK_PATH'] = getcwd();
+        $this->workPath  = getcwd();
+        $this->pathTokens['BEHAT_WORK_PATH'] = $this->workPath;
     }
 
     /**
@@ -62,6 +69,16 @@ class PathLocator
     public function setPathConstant($name, $path)
     {
         $this->pathTokens[$name] = $path;
+    }
+
+    /**
+     * Returns current work path.
+     *
+     * @return  string
+     */
+    public function getWorkPath()
+    {
+        return $this->workPath;
     }
 
     /**
@@ -136,8 +153,8 @@ class PathLocator
             } elseif (file_exists($inputPath)) {
                 $basePath = realpath($inputPath);
             }
-        } elseif (!is_dir($basePath) && 'features' === basename(getcwd())) {
-            $basePath = getcwd();
+        } elseif (!is_dir($basePath) && 'features' === basename($this->workPath)) {
+            $basePath = $this->workPath;
         }
         $basePath = $this->preparePath($basePath);
 
@@ -313,6 +330,7 @@ class PathLocator
     private function preparePath($path)
     {
         $pathTokens = $this->pathTokens;
+
         $path = preg_replace_callback('/%([^%]+)%/', function($matches) use($pathTokens) {
             $name = $matches[1];
             if (defined($name)) {
@@ -321,12 +339,12 @@ class PathLocator
                 return $pathTokens[$name];
             }
             return $matches[0];
-        }, $path);
+        }, str_replace('%%', '%', $path));
 
         $path = str_replace('/', DIRECTORY_SEPARATOR, str_replace('\\', '/', $path));
 
-        if (!file_exists($path) && file_exists(getcwd().DIRECTORY_SEPARATOR.$path)) {
-            $path = getcwd().DIRECTORY_SEPARATOR.$path;
+        if (!file_exists($path) && file_exists($this->workPath.DIRECTORY_SEPARATOR.$path)) {
+            $path = $this->workPath.DIRECTORY_SEPARATOR.$path;
         }
         if (!file_exists($path)) {
             foreach (explode(':', get_include_path()) as $libPath) {

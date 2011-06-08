@@ -275,7 +275,7 @@ class BehatCommand extends Command
 
         // configure formatter
         $formatter->setTranslator($translator);
-        $formatter->setParameter('base_path', getcwd());
+        $formatter->setParameter('base_path', $locator->getWorkPath());
         $formatter->setParameter('support_path', $locator->getSupportPath());
         $formatter->setParameter('verbose',
             $input->getOption('verbose') ?: $container->getParameter('behat.formatter.verbose')
@@ -514,7 +514,7 @@ class BehatCommand extends Command
      */
     protected function initFeaturesDirectoryStructure(PathLocator $locator, OutputInterface $output)
     {
-        $basePath       = getcwd() . DIRECTORY_SEPARATOR;
+        $basePath       = $locator->getWorkPath() . DIRECTORY_SEPARATOR;
         $featuresPath   = $locator->getFeaturesPath();
         $supportPath    = $locator->getSupportPath();
         $stepsPath      = current($locator->locateDefinitionsPaths(false));
