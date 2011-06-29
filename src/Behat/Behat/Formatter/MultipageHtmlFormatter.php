@@ -361,7 +361,11 @@ class MultipageHtmlFormatter extends HtmlFormatter
         foreach ($events as $event) {
             $scenario = $event->getStep()->getParent();
             $this->writeln('<li>');
-            $this->printScenarioHeader($scenario);
+            if ($scenario instanceof ScenarioNode) {
+                $this->printScenarioHeader($scenario);
+            } else {
+                $this->printBackgroundHeader($scenario);
+            }
             $this->printStep(
                 $event->getStep(),
                 $event->getResult(),
@@ -369,7 +373,11 @@ class MultipageHtmlFormatter extends HtmlFormatter
                 $event->getSnippet(),
                 $event->getException()
             );
-            $this->printScenarioFooter($scenario);
+            if ($scenario instanceof ScenarioNode) {
+                $this->printScenarioFooter($scenario);
+            } else {
+                $this->printBackgroundFooter($scenario);
+            }
             $this->writeln('</li>');
         }
         $this->writeln('</ol>');
