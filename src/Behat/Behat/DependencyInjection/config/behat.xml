@@ -249,6 +249,12 @@
             <argument>Generates a nice looking HTML report.</argument>
             <tag name="behat.formatter.dispatcher" />
         </service>
+        <service id="behat.formatter.dispatcher.multi" class="%behat.formatter.dispatcher.class%">
+            <argument>Behat\Behat\Formatter\MultipageHtmlFormatter</argument>
+            <argument>multi</argument>
+            <argument>Generates a folder of nice looking HTML reports with index.</argument>
+            <tag name="behat.formatter.dispatcher" />
+        </service>
         <service id="behat.formatter.dispatcher.junit" class="%behat.formatter.dispatcher.class%">
             <argument>Behat\Behat\Formatter\JUnitFormatter</argument>
             <argument>junit</argument>
